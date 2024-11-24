@@ -9,7 +9,7 @@ from models.file import load_file
 import storage.zincsearch as zincsearch
 
 MEGABYTE_SIZE = 1024 * 1024
-BUFFER_SIZE = 10000
+BUFFER_SIZE = 1000
 
 router = APIRouter(
     prefix="/api",
