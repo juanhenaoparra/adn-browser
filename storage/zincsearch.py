@@ -27,7 +27,13 @@ def create_index_mapping_from_headers(index_name: str, headers: List[str]) -> di
     All fields will be searchable and stored.
     """
 
-    properties = {}
+    properties = {
+        "filename": {
+            "type": "keyword",
+            "index": True,
+            "store": False
+        }
+    }
 
     for header in headers:
         # Special handling for known columns
@@ -37,37 +43,40 @@ def create_index_mapping_from_headers(index_name: str, headers: List[str]) -> di
                 properties[header] = {
                     "type": "keyword",
                     "index": True,
-                    "store": True,
+                    "store": False,
                     "sortable": True,
-                    "aggregatable": True
+                    "highlightable": True
                 }
             elif header == FILTER_COL_NAME:
                 # Filter values should be keywords for aggregations
                 properties[header] = {
                     "type": "keyword",
                     "index": True,
-                    "store": True,
-                    "aggregatable": True
+                    "store": False,
+                    "sortable": True,
+                    "highlightable": True
                 }
             else:
                 # INFO and FORMAT fields as text for flexible searching
                 properties[header] = {
                     "type": "text",
                     "index": True,
-                    "store": True,
+                    "store": False,
+                    "sortable": True,
                     "highlightable": True
                 }
         else:
             # Default mapping for other columns
             properties[header] = {
                 "type": "text",
-                "index": True,
-                "store": True
+                "index": False,
+                "store": False
             }
 
     return {
         "name": index_name,
         "storage_type": "disk",
+        "shard_num": 10,
         "mappings": {
             "properties": properties
         },

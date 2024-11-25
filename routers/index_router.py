@@ -1,15 +1,13 @@
 from fastapi import APIRouter, UploadFile, File
 import tempfile
-import os
 from pathlib import Path
-from threading import Thread
-from queue import Queue
-
+from datetime import datetime
 from models.file import load_file
 import storage.zincsearch as zincsearch
+from controllers.index_file import BatchProcessor
 
 MEGABYTE_SIZE = 1024 * 1024
-BUFFER_SIZE = 1000
+BUFFER_SIZE = 500
 
 router = APIRouter(
     prefix="/api",
@@ -17,9 +15,10 @@ router = APIRouter(
 )
 
 @router.post("/index")
-async def create_index(
+async def index_file(
     file: UploadFile = File(...),
 ):
+    now = datetime.now()
     try:
         temp_dir = Path(tempfile.gettempdir()) / "adn_index_data"
         temp_dir.mkdir(exist_ok=True)
@@ -28,57 +27,41 @@ async def create_index(
         with tempfile.NamedTemporaryFile(suffix=original_extension, dir=temp_dir) as temp_file:
             temp_file_path = Path(temp_file.name)
 
+            # Save the file to the temporary directory
             while chunk := await file.read(MEGABYTE_SIZE*10):
                 temp_file.write(chunk)
 
-            file_index = load_file(temp_file_path)
+            file_index = load_file("./data/archivos/chardonnay.vcf")
             index_name = "vcf_index"
 
             mapping_data = zincsearch.create_index_mapping_from_headers(index_name, list(file_index.by_name.keys()))
 
             zincsearch.create_or_update_mapping(mapping_data)
 
-            buffer_records = []
-            upload_queue = Queue()
-
-            def upload_worker():
-                while True:
-                    records_batch = upload_queue.get()
-                    if records_batch is None:
-                        break
-                    try:
-                        zincsearch.bulk_insert(index_name, records_batch)
-                    except Exception as e:
-                        print(f"Error uploading batch: {str(e)}")
-                    upload_queue.task_done()
-
-            upload_thread = Thread(target=upload_worker, daemon=True)
-            upload_thread.start()
+            count = 0
+            batch_processor = BatchProcessor(batch_size=BUFFER_SIZE, timeout=5, index_name=index_name)
 
             for variant in file_index._readable:
-                variant_slice = str(variant).split('\t')
+                count += 1
+                variant_slice = str(variant).strip().split('\t')
                 record = {file_index.by_index[col]: value for col, value in enumerate(variant_slice)}
-                buffer_records.append(record)
+                batch_processor.add_record(record)
 
-                if len(buffer_records) >= BUFFER_SIZE:
-                    upload_queue.put(buffer_records.copy())
-                    buffer_records.clear()
+            print("Waiting for batch processor to finish")
+            batch_processor.stop()
+            print("Batch processor finished")
 
-            if buffer_records:
-                upload_queue.put(buffer_records.copy())
-
-            upload_queue.put(None)
-            upload_thread.join()
-            upload_queue.join()
-
-        return {
-            "original_filename": file.filename,
-            "temp_path": str(temp_file_path),
-            "headers": file_index.by_name,
-            "status": "saved"
-        }
+            return {
+                "original_filename": file.filename,
+                "temp_path": str(temp_file_path),
+                "headers": file_index.by_name,
+                "status": "completed",
+                "records_processed": count
+            }
     except Exception as e:
         return {"error": str(e)}
+    finally:
+        print(f"Total time: {datetime.now() - now}")
 
 @router.post("/query")
 async def query_index():
