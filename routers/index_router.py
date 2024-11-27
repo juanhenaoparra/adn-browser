@@ -7,7 +7,7 @@ import storage.zincsearch as zincsearch
 from controllers.index_file import BatchProcessor
 
 MEGABYTE_SIZE = 1024 * 1024
-BUFFER_SIZE = 500
+BUFFER_SIZE = 1000
 
 router = APIRouter(
     prefix="/api",
@@ -46,6 +46,7 @@ async def index_file(
                 variant_slice = str(variant).strip().split('\t')
                 record = {file_index.by_index[col]: value for col, value in enumerate(variant_slice)}
                 batch_processor.add_record(record)
+                print(f"Added record {count}", end="\r")
 
             print("Waiting for batch processor to finish")
             batch_processor.stop()

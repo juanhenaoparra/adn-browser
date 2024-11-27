@@ -20,8 +20,7 @@ class BatchProcessor:
         self.worker_thread.start()
 
     def add_record(self, record):
-        with self.lock:
-            self.current_batch.append(record)
+        self.current_batch.append(record)
 
     def process_batch(self):
         self.last_process_time = time.time()
@@ -31,12 +30,13 @@ class BatchProcessor:
 
         batch_to_process = []
 
-        if len(self.current_batch) >= self.batch_size:
-            batch_to_process = self.current_batch[:self.batch_size]
-            self.current_batch = self.current_batch[self.batch_size:]
-        else:
-            batch_to_process = self.current_batch
-            self.current_batch = []
+        with self.lock:
+            if len(self.current_batch) >= self.batch_size:
+                batch_to_process = self.current_batch[:self.batch_size]
+                self.current_batch = self.current_batch[self.batch_size:]
+            else:
+                batch_to_process = self.current_batch
+                self.current_batch = []
 
         insert_batch(self.index_name, batch_to_process)
 
@@ -51,18 +51,17 @@ class BatchProcessor:
 
     def process_batches(self):
         while self.running:
-            with self.lock:
-                if self.stop_event.is_set():
-                    print(f"Processing remaining batch before shutdown [{len(self.current_batch)}]")
+            if self.stop_event.is_set():
+                print(f"Processing remaining batch before shutdown [{len(self.current_batch)}]")
 
-                    for _ in range(0, len(self.current_batch), self.batch_size):
-                        self.process_batch()
-                        time.sleep(0.1)  # Avoid busy waiting
-
-                    break
-
-                if len(self.current_batch) >= self.batch_size or ((time.time() - self.last_process_time) >= self.timeout):
+                for _ in range(0, len(self.current_batch), self.batch_size):
                     self.process_batch()
+                    time.sleep(0.1)  # Avoid busy waiting
+
+                break
+
+            if len(self.current_batch) >= self.batch_size or ((time.time() - self.last_process_time) >= self.timeout):
+                self.process_batch()
 
             time.sleep(0.1)  # Avoid busy waiting
 
