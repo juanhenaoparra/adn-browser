@@ -1,6 +1,7 @@
 import requests
 from typing import Dict, Optional, List
 import logging
+from requests.sessions import Session
 
 BASE_ENDPOINT = "http://localhost:4080"
 
@@ -20,6 +21,9 @@ INDEXABLE_COLS = [
     INFO_COL_NAME,
     FORMAT_COL_NAME,
 ]
+
+# Add a session object as a module-level variable
+_session = Session()
 
 def create_index_mapping_from_headers(index_name: str, headers: List[str]) -> dict:
     """
@@ -76,7 +80,7 @@ def create_index_mapping_from_headers(index_name: str, headers: List[str]) -> di
     return {
         "name": index_name,
         "storage_type": "disk",
-        "shard_num": 10,
+        "shard_num": 50,
         "mappings": {
             "properties": properties
         },
@@ -114,7 +118,8 @@ def create_or_update_mapping(
     """
     url = f"{base_url or BASE_ENDPOINT}/api/index"
 
-    response = requests.put(
+    # Use session instead of requests directly
+    response = _session.put(
         url,
         json=mapping_data,
         auth=(username, password),
@@ -165,7 +170,8 @@ def bulk_insert(
         "records": records
     }
 
-    response = requests.post(
+    # Use session here as well
+    response = _session.post(
         url,
         json=payload,
         auth=(username, password),
