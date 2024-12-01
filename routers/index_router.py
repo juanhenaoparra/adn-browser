@@ -1,4 +1,5 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, UploadFile, File, Query
+from typing import Optional
 import tempfile
 from pathlib import Path
 from datetime import datetime
@@ -46,6 +47,7 @@ async def index_file(
                 count += 1
                 variant_slice = str(variant).strip().split('\t')
                 record = {file_index.by_index[col]: value for col, value in enumerate(variant_slice)}
+                record['filename'] = file.filename
                 await processor.add_record(record)
                 print(f"Processed {count} records", end="\r")
 
@@ -66,9 +68,42 @@ async def index_file(
         print(f"Total time: {datetime.now() - now}")
 
 @router.post("/query")
-async def query_index():
+async def query_index(
+    filename: Optional[str] = Query(None, description="Filter results by filename"),
+    search: Optional[str] = Query(None, description="Search term to match across indexed columns"),
+    page: int = Query(1, ge=1, description="Page number"),
+    size: int = Query(10, ge=1, le=100, description="Number of records per page")
+):
     """
-    Endpoint to query the indexed file.
-    To be implemented later.
+    Query the indexed VCF records with pagination, filename filter, and search across indexed columns.
+
+    Args:
+        filename: Optional filename to filter results
+        search: Optional search term to match across indexed columns (CHROM, FILTER, INFO, FORMAT)
+        page: Page number (starts from 1)
+        size: Number of records per page (1-100)
+
+    Returns:
+        Dict containing search results and pagination metadata
     """
-    pass
+    try:
+        index_name = "vcf_index"
+
+        results = zincsearch.search_records(
+            index_name=index_name,
+            filename=filename,
+            search_term=search,
+            page=page,
+            size=size
+        )
+
+        return {
+            "total": results.get("hits", {}).get("total", {}).get("value", 0),
+            "page": page,
+            "size": size,
+            "records": results.get("hits", {}).get("hits", []),
+            "took_ms": results.get("took", 0)
+        }
+
+    except Exception as e:
+        return {"error": str(e)}

@@ -181,3 +181,105 @@ def bulk_insert(
     response.raise_for_status()
 
     return response.json()
+
+def search_records(
+    index_name: str,
+    filename: Optional[str] = None,
+    search_term: Optional[str] = None,
+    page: int = 1,
+    size: int = 10,
+    username: str = "admin",
+    password: str = "admin",
+    base_url: Optional[str] = None
+) -> Dict:
+    """
+    Search records in a ZincSearch index with pagination, filename filter, and search across indexable columns.
+
+    Args:
+        index_name: Name of the index to search in
+        filename: Optional filename to filter results
+        search_term: Optional term to search across all indexable columns
+        page: Page number (1-based indexing, defaults to 1)
+        size: Number of records per page (defaults to 10)
+        username: ZincSearch username (defaults to 'admin')
+        password: ZincSearch password (defaults to 'admin')
+        base_url: Optional custom base URL (defaults to BASE_ENDPOINT)
+
+    Returns:
+        Dict: Response from the ZincSearch API containing search results and metadata
+    """
+    if page < 1:
+        raise ValueError("Page number must be greater than 0")
+    if size < 1:
+        raise ValueError("Page size must be greater than 0")
+
+    url = f"{base_url or BASE_ENDPOINT}/es/{index_name}/_search"
+    offset = (page - 1) * size
+
+    # Start with a match_all query by default
+    query = {
+        "from": offset,
+        "size": size,
+        "query": {
+            "match_all": {}
+        }
+    }
+
+    # If we have search conditions, switch to bool query
+    if filename or search_term:
+        query["query"] = {
+            "bool": {}
+        }
+
+        # Add filename filter if provided
+        if filename:
+            if "must" not in query["query"]["bool"]:
+                query["query"]["bool"]["must"] = []
+            query["query"]["bool"]["must"].append({
+                "term": {
+                    "filename": filename
+                }
+            })
+
+        # Add search across indexable columns if search term is provided
+        if search_term:
+            if "should" not in query["query"]["bool"]:
+                query["query"]["bool"]["should"] = []
+
+            for field in INDEXABLE_COLS:
+                # Add prefix query for partial matches at start
+                query["query"]["bool"]["should"].append({
+                    "prefix": {
+                        field: search_term
+                    }
+                })
+
+                # Add wildcard query for partial matches anywhere
+                query["query"]["bool"]["should"].append({
+                    "wildcard": {
+                        field: f"*{search_term}*"
+                    }
+                })
+
+                # Add match query for text analysis
+                query["query"]["bool"]["should"].append({
+                    "match": {
+                        field: {
+                            "query": search_term,
+                            "fuzziness": "AUTO"
+                        }
+                    }
+                })
+
+            query["query"]["bool"]["minimum_should_match"] = 1
+
+    # Original search request
+    response = _session.post(
+        url,
+        json=query,
+        auth=(username, password),
+        headers=DEFAULT_HEADERS
+    )
+
+    response.raise_for_status()
+    return response.json()
