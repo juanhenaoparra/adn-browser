@@ -66,6 +66,9 @@ class AsyncBatchProcessor:
                 print(f"Timeout reached, stopping worker {worker_id}")
                 break
 
+            if self.stop_event.is_set() and len(self.pending_keys)-1 < worker_id:
+                break
+
             if self.stop_event.is_set() and not self.pending_keys[worker_id]:
                 break
 
