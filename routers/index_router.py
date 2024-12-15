@@ -6,6 +6,7 @@ from datetime import datetime
 from models.file import load_file
 import storage.zincsearch as zincsearch
 from controllers.index_file import AsyncBatchProcessor
+from controllers.email import Publisher
 import random
 from models.email import EmailRequest
 
@@ -126,14 +127,19 @@ async def query_index(
 @router.post("/email")
 async def generate_otp(email_request: EmailRequest):
     try:
-        # Generate a random 6-digit OTP
         otp = "".join([str(random.randint(0, 9)) for _ in range(6)])
 
+        message = {"email": email_request.email, "otp": otp}
+
+        publisher = Publisher()
+        publisher.publish(message)
+
         return {
-            "message": "OTP generated successfully",
+            "message": "OTP generated and email queued successfully",
             "email": email_request.email,
-            "otp": otp,  # In production, don't return the OTP in response
-            "expires_in": "10 minutes",  # You can make this configurable
+            "otp": otp,
+            "expires_in": 600,
         }
     except Exception as e:
+        print(f"Error publishing message: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
