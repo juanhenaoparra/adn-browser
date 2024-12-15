@@ -1,0 +1,16 @@
+version: "3.2"
+services:
+  event-driven-rabbitmq:
+    image: rabbitmq:3.8-management-alpine
+    container_name: 'event-driven-rabbitmq'
+    ports:
+        - 5673:5672
+        - 15673:15672
+    volumes:
+        - event-driven-rabbitmq:/var/lib/rabbitmq/
+    environment:
+        - RABBITMQ_DEFAULT_USER=admin
+        - RABBITMQ_DEFAULT_PASS=admin
+volumes:
+  event-driven-rabbitmq:
+    driver: local
