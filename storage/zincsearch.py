@@ -3,7 +3,7 @@ from typing import Dict, Optional, List
 import logging
 from requests.sessions import Session
 
-BASE_ENDPOINT = "http://150.136.126.44:4080"
+BASE_ENDPOINT = "http://localhost:4080"
 
 DEFAULT_HEADERS = {
     "Content-Type": "application/json",

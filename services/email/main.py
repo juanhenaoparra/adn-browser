@@ -19,14 +19,15 @@ config = {
 
 def main():
     queue_handler = None
-
     try:
         parser = argparse.ArgumentParser(description="Notification Consumer Fallback")
+    
         parser.add_argument(
             "type", help="Type of the consumer", default=ConsumerType.EMAIL.value
         )
+    
         args = parser.parse_args()
-
+    
         consumer_type = ConsumerType(args.type)
         consumer = NewConsumer(consumer_type)
 
@@ -48,7 +49,6 @@ def main():
         queue_handler.suscribe()
     except Exception as e:
         print("Fatal error: ", str(e))
-
         if queue_handler:
             queue_handler.close()
 

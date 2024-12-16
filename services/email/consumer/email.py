@@ -24,17 +24,14 @@ class EmailConsumer(Consumer):
 
             if not recipient_email or not otp:
                 raise ValueError("Missing email or OTP in message body")
+            
+            template_path = os.path.join(os.path.dirname(__file__), '../templates/otp_template.html')
+            with open(template_path, 'r') as file:
+                html_template = file.read()
 
-            html = f"""
-            <html>
-                <body>
-                    <h2>Your OTP Code</h2>
-                    <p>Here is your one-time password (OTP): <strong>{otp}</strong></p>
-                    <p>This code will expire in 10 minutes.</p>
-                    <p>If you didn't request this code, please ignore this email.</p>
-                </body>
-            </html>
-            """
+            html = html_template.replace("{{ otp }}", otp)
+
+            
 
             print(
                 f"Sending email from {self.sender_email} to {recipient_email} with OTP {otp}"

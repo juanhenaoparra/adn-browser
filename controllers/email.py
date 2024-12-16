@@ -26,8 +26,9 @@ class Publisher:
         parameters = pika.ConnectionParameters(
             host=self.host, port=self.port, credentials=credentials
         )
-
+        
         connection = pika.BlockingConnection(parameters)
+        
         channel = connection.channel()
 
         # Declare the queue (creates if doesn't exist)

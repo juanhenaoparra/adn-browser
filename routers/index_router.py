@@ -80,7 +80,7 @@ async def index_file(
         print(f"Total time: {datetime.now() - now}")
 
 
-@router.post("/query")
+@router.get("/query")
 async def query_index(
     filename: Optional[str] = Query(None, description="Filter results by filename"),
     search: Optional[str] = Query(
