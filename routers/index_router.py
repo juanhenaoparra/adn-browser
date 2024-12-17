@@ -29,7 +29,7 @@ async def index_file(
         with tempfile.NamedTemporaryFile(
             suffix=original_extension, dir=temp_dir
         ) as temp_file:
-            temp_file_path = Path("samples/cabernetSauvignon-001.vcf")
+            temp_file_path = Path(temp_file.name)
 
             # Save the file to the temporary directory
             while chunk := await file.read(MEGABYTE_SIZE * 10):
